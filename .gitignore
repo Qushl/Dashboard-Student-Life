@@ -1,0 +1,41 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+*.egg
+dist/
+build/
+.eggs/
+
+# Виртуальное окружение
+.venv/
+venv/
+env/
+
+# Логи
+logs/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Системные файлы
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Временные файлы
+*.tmp
+*.bak
+
+# Streamlit
+.streamlit/secrets.toml
+
+# Зависимости (пересоздаётся из requirements.txt)
+pip-log.txt
+pip-delete-this-directory.txt
