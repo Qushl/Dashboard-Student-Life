@@ -57,6 +57,4 @@ streamlit run app.py
 │   ├── excel_exporter.py   # Экспорт XLSX
 │   ├── pdf_exporter.py     # Экспорт PDF
 │   └── logger.py           # Журнал событий
-└── templates/
-    └── report_template.html
 ```
