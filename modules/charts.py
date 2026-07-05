@@ -9,6 +9,13 @@ from config import QUESTIONS
 COLORS = px.colors.qualitative.Set2
 SCALE_COLOR = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"]
 
+NO_ANSWER = "(нет ответа)"
+
+
+def _clean(series: pd.Series) -> pd.Series:
+    """Убирает пропуски и '(нет ответа)' из серии."""
+    return series[series.notna() & (series.astype(str) != NO_ANSWER)]
+
 
 def render_block_charts(df: pd.DataFrame, block: int) -> list[go.Figure]:
     """Список графиков для одного тематического блока."""
@@ -59,7 +66,7 @@ def _wrap_label(text: str, max_len: int = 20) -> str:
 
 def _bar_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure:
     """Столбчатая диаграмма."""
-    vc = df[col].value_counts()
+    vc = _clean(df[col]).value_counts()
     labels = [_wrap_label(str(v)) for v in vc.index]
     fig = go.Figure(go.Bar(
         x=labels, y=vc.values, text=vc.values,
@@ -75,7 +82,7 @@ def _bar_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure:
 
 def _histogram(df: pd.DataFrame, col: str, title: str) -> go.Figure:
     """Гистограмма для числовых данных."""
-    vc = df[col].dropna().value_counts().sort_index()
+    vc = pd.to_numeric(_clean(df[col]), errors="coerce").dropna().value_counts().sort_index()
     labels = [str(v) for v in vc.index]
     fig = go.Figure(go.Bar(
         x=labels, y=vc.values, text=vc.values,
@@ -91,7 +98,7 @@ def _histogram(df: pd.DataFrame, col: str, title: str) -> go.Figure:
 
 def _scale_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure:
     """Диаграмма для шкалы 1-5."""
-    s = pd.to_numeric(df[col], errors="coerce").dropna().astype(int)
+    s = pd.to_numeric(_clean(df[col]), errors="coerce").dropna().astype(int)
     vc = s.value_counts().sort_index()
     x_labels = [str(v) for v in vc.index]
     fig = go.Figure(go.Bar(
@@ -109,7 +116,7 @@ def _scale_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure:
 
 def _multi_choice_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure:
     """Диаграмма для множественного выбора."""
-    expanded = df[col].str.split(r",\s*", expand=True).stack().str.strip()
+    expanded = _clean(df[col]).str.split(r",\s*", expand=True).stack().str.strip()
     vc = expanded.value_counts()
     labels = [_wrap_label(str(v)) for v in vc.index]
     fig = go.Figure(go.Bar(
@@ -127,7 +134,7 @@ def _multi_choice_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure:
 def _text_wordcloud_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure:
     """Топ слов для текстовых колонок."""
     from modules.analytics import _top_words
-    top = _top_words(df[col], n=3, min_freq=1)
+    top = _top_words(_clean(df[col]), n=3, min_freq=1)
     if not top:
         return None
     labels = [_wrap_label(w, 15) for w in top.keys()]
@@ -150,16 +157,16 @@ def render_pie(df: pd.DataFrame, col: str, title: str) -> go.Figure | None:
     col_type = cfg.get("type", "")
 
     if col_type == "categorical":
-        vc = df[col].value_counts()
+        vc = _clean(df[col]).value_counts()
     elif col_type == "scale_1_5":
-        s = pd.to_numeric(df[col], errors="coerce").dropna().astype(int)
+        s = pd.to_numeric(_clean(df[col]), errors="coerce").dropna().astype(int)
         vc = s.value_counts().sort_index()
         vc.index = [str(v) for v in vc.index]
     elif col_type == "multiple_choice":
-        expanded = df[col].str.split(r",\s*", expand=True).stack().str.strip()
+        expanded = _clean(df[col]).str.split(r",\s*", expand=True).stack().str.strip()
         vc = expanded.value_counts()
     elif col_type == "numeric":
-        vc = df[col].dropna().value_counts().sort_index()
+        vc = pd.to_numeric(_clean(df[col]), errors="coerce").dropna().value_counts().sort_index()
         vc.index = [str(v) for v in vc.index]
     else:
         return None
@@ -182,14 +189,14 @@ def render_table(df: pd.DataFrame, col: str, title: str) -> pd.DataFrame | None:
     col_type = cfg.get("type", "")
 
     if col_type == "categorical":
-        vc = df[col].value_counts()
+        vc = _clean(df[col]).value_counts()
         total = vc.sum()
         return pd.DataFrame({
             "Ответ": vc.index, "Количество": vc.values,
             "Доля (%)": (vc.values / total * 100).round(1),
         })
     if col_type == "scale_1_5":
-        s = pd.to_numeric(df[col], errors="coerce").dropna().astype(int)
+        s = pd.to_numeric(_clean(df[col]), errors="coerce").dropna().astype(int)
         vc = s.value_counts().sort_index()
         total = vc.sum()
         return pd.DataFrame({
@@ -197,7 +204,7 @@ def render_table(df: pd.DataFrame, col: str, title: str) -> pd.DataFrame | None:
             "Доля (%)": (vc.values / total * 100).round(1),
         })
     if col_type == "multiple_choice":
-        expanded = df[col].str.split(r",\s*", expand=True).stack().str.strip()
+        expanded = _clean(df[col]).str.split(r",\s*", expand=True).stack().str.strip()
         vc = expanded.value_counts()
         total = len(df)
         return pd.DataFrame({
@@ -205,7 +212,7 @@ def render_table(df: pd.DataFrame, col: str, title: str) -> pd.DataFrame | None:
             "Доля (%)": (vc.values / total * 100).round(1),
         })
     if col_type == "numeric":
-        s = df[col].dropna()
+        s = _clean(df[col]).dropna()
         return pd.DataFrame({
             "Показатель": ["Среднее", "Медиана", "Мин", "Макс", "Стд. отклонение"],
             "Значение": [

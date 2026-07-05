@@ -4,6 +4,8 @@ import pandas as pd
 
 from config import QUESTIONS, BLOCK_NAMES
 
+NO_ANSWER = "(нет ответа)"
+
 
 def generate_conclusions(df: pd.DataFrame) -> dict[int, list[str]]:
     """Текстовые выводы по каждому тематическому блоку."""
@@ -27,7 +29,7 @@ def _conclusions_for_block(df: pd.DataFrame, block: int) -> list[str]:
         q = cfg["question"]
 
         if col_type == "categorical":
-            vc = df[col].value_counts()
+            vc = df[col][df[col].astype(str) != NO_ANSWER].value_counts()
             total = vc.sum()
             if len(vc) == 0 or total == 0:
                 continue
@@ -36,13 +38,15 @@ def _conclusions_for_block(df: pd.DataFrame, block: int) -> list[str]:
             result.append(f"**{q}**: наиболее частый ответ — «{top}» ({top_pct}% респондентов).")
 
         elif col_type == "numeric":
-            s = df[col].dropna()
+            s = pd.to_numeric(df[col], errors="coerce").dropna()
+            s = s[s.astype(str) != NO_ANSWER]
             if len(s) == 0:
                 continue
             result.append(f"**{q}**: среднее = {round(s.mean(), 1)}, медиана = {round(s.median(), 1)}.")
 
         elif col_type == "scale_1_5":
-            s = pd.to_numeric(df[col], errors="coerce").dropna()
+            raw = df[col][df[col].astype(str) != NO_ANSWER]
+            s = pd.to_numeric(raw, errors="coerce").dropna()
             if len(s) == 0:
                 continue
             mean = round(s.mean(), 2)
@@ -55,7 +59,8 @@ def _conclusions_for_block(df: pd.DataFrame, block: int) -> list[str]:
             result.append(f"**{q}**: средняя оценка {mean} из 5 — {level}.")
 
         elif col_type == "multiple_choice":
-            expanded = df[col].str.split(r",\s*", expand=True).stack().str.strip()
+            raw = df[col][df[col].astype(str) != NO_ANSWER]
+            expanded = raw.str.split(r",\s*", expand=True).stack().str.strip()
             vc = expanded.value_counts()
             total = len(df)
             if len(vc) == 0 or total == 0:

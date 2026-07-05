@@ -64,6 +64,14 @@ _SLANG_MAP = {
 }
 
 
+NO_ANSWER = "(нет ответа)"
+
+
+def _clean(series: pd.Series) -> pd.Series:
+    """Убирает пропуски и '(нет ответа)' из серии."""
+    return series[series.notna() & (series.astype(str) != NO_ANSWER)]
+
+
 def compute_all_stats(df: pd.DataFrame) -> dict:
     """Вычисляет показатели по всем блокам."""
     return {block: _compute_block(df, block) for block in BLOCK_NAMES}
@@ -81,7 +89,7 @@ def compute_kpi(df: pd.DataFrame) -> dict:
 
     pct_working = 0
     if "Есть ли у вас подработка?" in df:
-        work_mask = df["Есть ли у вас подработка?"].str.contains("Да|Полноценно|работаю", na=False, regex=True)
+        work_mask = ~df["Есть ли у вас подработка?"].str.contains("Нет", na=False)
         pct_working = work_mask.sum() / total * 100 if total else 0
 
     logist_col = "Как вы оцениваете удобство логистики (дорога + транспорт)?"
@@ -114,7 +122,7 @@ def _compute_column(df: pd.DataFrame, col: str, cfg: dict) -> dict:
     col_type = cfg["type"]
 
     if col_type == "categorical":
-        vc = df[col].value_counts()
+        vc = _clean(df[col]).value_counts()
         total = vc.sum()
         return {
             "counts": vc.to_dict(),
@@ -142,7 +150,7 @@ def _compute_column(df: pd.DataFrame, col: str, cfg: dict) -> dict:
         }
 
     if col_type == "multiple_choice":
-        expanded = _expand_multiple(df[col])
+        expanded = _expand_multiple(_clean(df[col]))
         vc = expanded.sum().sort_values(ascending=False)
         total = len(df)
         return {
@@ -151,9 +159,9 @@ def _compute_column(df: pd.DataFrame, col: str, cfg: dict) -> dict:
         }
 
     if col_type == "text":
-        top_words = _top_words(df[col])
+        top_words = _top_words(_clean(df[col]))
         return {
-            "sample": df[col].dropna().head(10).tolist(),
+            "sample": _clean(df[col]).head(10).tolist(),
             "top_words": top_words,
         }
 

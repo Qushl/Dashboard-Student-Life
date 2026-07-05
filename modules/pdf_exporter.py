@@ -13,10 +13,18 @@ from fpdf import FPDF
 
 from config import QUESTIONS, BLOCK_NAMES
 from modules.analytics import compute_kpi, compute_all_stats, _top_words
+from modules.conclusions import generate_conclusions
 
 FONT_DIR = Path(__file__).resolve().parent.parent / "static" / "fonts"
 COLORS = ["#6366f1", "#22c55e", "#f97316", "#ef4444", "#eab308", "#8b5cf6", "#06b6d4", "#ec4899"]
 SCALE_COLORS = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#6366f1"]
+
+NO_ANSWER = "(нет ответа)"
+
+
+def _clean(series: pd.Series) -> pd.Series:
+    """Убирает пропуски и '(нет ответа)' из серии."""
+    return series[series.notna() & (series.astype(str) != NO_ANSWER)]
 
 
 def _fig_to_png_bytes(fig) -> bytes:
@@ -29,7 +37,7 @@ def _fig_to_png_bytes(fig) -> bytes:
 
 
 def _make_pie(series: pd.Series, title: str) -> bytes:
-    vc = series.value_counts()
+    vc = _clean(series).value_counts()
     fig, ax = plt.subplots(figsize=(5, 3.5))
     ax.pie(vc.values, labels=vc.index, autopct="%1.0f%%", colors=COLORS[:len(vc)], startangle=90, textprops={"fontsize": 8})
     ax.set_title(title, fontsize=10, fontweight="bold")
@@ -37,7 +45,7 @@ def _make_pie(series: pd.Series, title: str) -> bytes:
 
 
 def _make_bar(series: pd.Series, title: str) -> bytes:
-    vc = series.value_counts()
+    vc = _clean(series).value_counts()
     fig, ax = plt.subplots(figsize=(5, 3))
     ax.barh(vc.index[::-1], vc.values[::-1], color=COLORS[:len(vc)])
     ax.set_xlabel("Количество", fontsize=8)
@@ -50,7 +58,7 @@ def _make_bar(series: pd.Series, title: str) -> bytes:
 
 
 def _make_histogram(series: pd.Series, title: str) -> bytes:
-    s = series.dropna()
+    s = _clean(series).dropna()
     vals = [int(v) for v in s if pd.notna(v)]
     vc = pd.Series(vals).value_counts().sort_index()
     fig, ax = plt.subplots(figsize=(5, 3))
@@ -65,7 +73,7 @@ def _make_histogram(series: pd.Series, title: str) -> bytes:
 
 
 def _make_scale(series: pd.Series, title: str) -> bytes:
-    s = pd.to_numeric(series, errors="coerce").dropna().astype(int)
+    s = pd.to_numeric(_clean(series), errors="coerce").dropna().astype(int)
     vc = s.value_counts().sort_index()
     fig, ax = plt.subplots(figsize=(5, 3))
     ax.bar([str(v) for v in vc.index], vc.values, color=SCALE_COLORS[:len(vc)])
@@ -79,7 +87,7 @@ def _make_scale(series: pd.Series, title: str) -> bytes:
 
 
 def _make_multi_choice(series: pd.Series, title: str) -> bytes:
-    expanded = series.str.split(r",\s*", expand=True).stack().str.strip()
+    expanded = _clean(series).str.split(r",\s*", expand=True).stack().str.strip()
     vc = expanded.value_counts().head(10)
     fig, ax = plt.subplots(figsize=(5, 3))
     ax.barh(vc.index[::-1], vc.values[::-1], color="#22c55e")
@@ -93,7 +101,7 @@ def _make_multi_choice(series: pd.Series, title: str) -> bytes:
 
 
 def _make_top_words(series: pd.Series, title: str) -> bytes | None:
-    top = _top_words(series, n=5, min_freq=1)
+    top = _top_words(_clean(series), n=5, min_freq=1)
     if not top:
         return None
     fig, ax = plt.subplots(figsize=(5, 3))
@@ -115,7 +123,7 @@ def _render_chart_for_pdf(df: pd.DataFrame, col: str, cfg: dict) -> bytes | None
     title = cfg.get("question", col)
 
     if col_type == "categorical":
-        vc = df[col].value_counts()
+        vc = _clean(df[col]).value_counts()
         return _make_pie(df[col], title) if len(vc) <= 5 else _make_bar(df[col], title)
     if col_type == "numeric":
         return _make_histogram(df[col], title)
@@ -213,6 +221,20 @@ class StudentReportPDF(FPDF):
             self.ln(3)
             Path(tmp_path).unlink(missing_ok=True)
 
+    def add_block_conclusions(self, block_num: int, block_name: str, items: list[str]):
+        """Добавляет аналитические выводы по блоку."""
+        self.add_page()
+        self.set_font(self._font_family, "B", 14)
+        self.cell(0, 10, f"Выводы: Блок {block_num}. {block_name}", new_x="LMARGIN", new_y="NEXT")
+        self.ln(4)
+        self.set_font(self._font_family, "", 10)
+        for item in items:
+            if self.get_y() + 10 > self.h - 20:
+                self.add_page()
+            self.set_x(10)
+            self.multi_cell(190, 6, f"  — {item}")
+            self.ln(2)
+
     def add_conclusion(self, total: int):
         self.add_page()
         self.set_font(self._font_family, "B", 14)
@@ -231,6 +253,7 @@ def export_to_pdf(df: pd.DataFrame) -> bytes:
     """Генерирует PDF-отчёт с графиками."""
     kpi = compute_kpi(df)
     stats = compute_all_stats(df)
+    conclusions = generate_conclusions(df)
 
     pdf = StudentReportPDF()
     pdf.alias_nb_pages()
@@ -240,6 +263,10 @@ def export_to_pdf(df: pd.DataFrame) -> bytes:
     for block_num, block_name in BLOCK_NAMES.items():
         block_stats = stats.get(block_num, {})
         pdf.add_block_section(block_num, block_name, block_stats, df)
+
+        block_conclusions = conclusions.get(block_num, [])
+        if block_conclusions:
+            pdf.add_block_conclusions(block_num, block_name, block_conclusions)
 
     pdf.add_conclusion(len(df))
     return bytes(pdf.output())
@@ -253,7 +280,8 @@ def _format_stat_line(question: str, cfg: dict, data: dict) -> str:
         return f"{question}: среднее = {data.get('mean', '?')}"
     if col_type in ("categorical", "multiple_choice"):
         pcts = data.get("percentages", {})
-        if pcts:
-            top = max(pcts, key=pcts.get)
-            return f"{question}: самый частый ответ — «{top}» ({pcts[top]}%)"
+        filtered = {k: v for k, v in pcts.items() if k != NO_ANSWER}
+        if filtered:
+            top = max(filtered, key=filtered.get)
+            return f"{question}: самый частый ответ — «{top}» ({filtered[top]}%)"
     return ""
