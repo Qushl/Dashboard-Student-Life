@@ -81,7 +81,7 @@ QUESTIONS = {
 
     # Блок 4. Финансы и расходы
     "Какой у вас основной источник дохода?": {
-        "type": "multiple_choice",
+        "type": "categorical",
         "block": 4,
         "block_name": "Финансы и расходы",
         "question": "Источник дохода",
