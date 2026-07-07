@@ -45,7 +45,6 @@ streamlit run app.py
 ├── app.py              # Главное приложение
 ├── config.py           # Маппинг вопросов анкеты
 ├── requirements.txt    # Зависимости
-├── data/               # Тестовые данные
 ├── modules/
 │   ├── data_loader.py      # Загрузка данных
 │   ├── preprocessor.py     # Предобработка
