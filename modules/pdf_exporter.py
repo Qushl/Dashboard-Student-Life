@@ -12,7 +12,7 @@ import pandas as pd
 from fpdf import FPDF
 
 from config import QUESTIONS, BLOCK_NAMES
-from modules.analytics import compute_kpi, compute_all_stats, _top_words
+from modules.analytics import compute_kpi, compute_all_stats
 from modules.conclusions import generate_conclusions
 
 FONT_DIR = Path(__file__).resolve().parent.parent / "static" / "fonts"
@@ -99,24 +99,6 @@ def _make_multi_choice(series: pd.Series, title: str) -> bytes:
     fig.tight_layout()
     return _fig_to_png_bytes(fig)
 
-
-def _make_top_words(series: pd.Series, title: str) -> bytes | None:
-    top = _top_words(_clean(series), n=5, min_freq=1)
-    if not top:
-        return None
-    fig, ax = plt.subplots(figsize=(5, 3))
-    words = list(top.keys())[::-1]
-    counts = list(top.values())[::-1]
-    ax.barh(words, counts, color="#8b5cf6")
-    ax.set_xlabel("Частота", fontsize=8)
-    ax.set_title(f"{title} — топ слов", fontsize=10, fontweight="bold")
-    ax.tick_params(axis="y", labelsize=7)
-    for i, v in enumerate(counts):
-        ax.text(v + 0.05, i, str(v), va="center", fontsize=7)
-    fig.tight_layout()
-    return _fig_to_png_bytes(fig)
-
-
 def _render_chart_for_pdf(df: pd.DataFrame, col: str, cfg: dict) -> bytes | None:
     """Выбирает и рендерит подходящий тип графика."""
     col_type = cfg.get("type", "")
@@ -132,7 +114,7 @@ def _render_chart_for_pdf(df: pd.DataFrame, col: str, cfg: dict) -> bytes | None
     if col_type == "multiple_choice":
         return _make_multi_choice(df[col], title)
     if col_type == "text":
-        return _make_top_words(df[col], title)
+        return None
     return None
 
 

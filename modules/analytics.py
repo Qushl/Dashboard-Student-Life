@@ -4,65 +4,6 @@ import pandas as pd
 
 from config import QUESTIONS, BLOCK_NAMES
 
-# Стоп-слова для анализа текста
-_STOP_RU = {
-    "и", "в", "во", "не", "что", "он", "на", "я", "с", "со", "как", "а", "то",
-    "все", "она", "так", "его", "но", "да", "ты", "к", "у", "же", "вы", "за",
-    "бы", "по", "только", "ее", "мне", "было", "вот", "от", "меня", "еще",
-    "нет", "о", "из", "ему", "теперь", "когда", "даже", "ну", "вдруг", "ли",
-    "если", "уже", "или", "ни", "был", "него", "до", "вас", "нибудь",
-    "опять", "уж", "вам", "ведь", "там", "потом", "себя", "ничего", "ей",
-    "может", "они", "тут", "где", "есть", "надо", "ней", "для", "мы", "тебя",
-    "их", "чем", "была", "сам", "чтоб", "без", "будто", "чего", "раз", "тоже",
-    "себе", "под", "будет", "ж", "тогда", "кто", "этот", "того", "потому",
-    "этого", "какой", "совсем", "ним", "здесь", "этом", "один", "почти", "мой",
-    "тем", "чтобы", "нее", "сейчас", "были", "куда", "зачем", "всех", "можно",
-    "при", "наконец", "два", "об", "другой", "хоть", "после", "над", "больше",
-    "тот", "через", "эти", "нас", "про", "всего", "них", "какая", "много",
-    "разве", "три", "эту", "моя", "впрочем", "хорошо", "свою", "этой",
-    "перед", "иногда", "лучше", "чуть", "том", "нельзя", "такой", "им",
-    "более", "всегда", "хотя", "конечно", "всю", "между",
-    "этого", "этих", "этим", "этими", "себе", "свои", "своих", "своей",
-    "своего", "своё", "своим", "мной", "тобой", "ними", "нему", "них", "её",
-    "который", "которая", "которое", "которые", "которого", "которой",
-    "такой", "такая", "такие", "такого", "весь", "вся", "всё", "все",
-    "каждый", "каждая", "каждое",
-    "то", "это", "вот", "ещё", "еще", "уже", "просто", "также", "тоже",
-    "самый", "самая", "самое", "самые", "очень", "довольно", "примерно",
-    "почему", "поэтому", "нужно", "нужна", "нужны", "нужен",
-    "сидеть", "сиджу", "сидел", "сидела",
-    "ходить", "хожу", "пошел", "пошла",
-    "идти", "иду", "шел", "шла",
-    "стоять", "стою", "лежать", "лежу",
-    "ждать", "жду",
-    "делать", "сделать", "заниматься", "заняться",
-    "проводить", "провести", "провел", "провела",
-    "тратить", "потратить", "использовать",
-    "получать", "получить", "хотеть", "захотеть",
-    "мочь", "смочь", "быть", "стать",
-    "сказать", "взять", "дать", "понять", "видеть", "знать", "думать",
-    "ответ", "норма", "нормальный", "нормально",
-    "целое", "закрыть", "вернуть", "повлиять", "сфера",
-    "семестр", "год", "месяц", "неделя", "день", "время", "времена", "период",
-    "весь", "вся", "все", "всё", "всего",
-    "сейчас", "теперь", "тогда", "потом",
-    "часто", "редко", "иногда", "постоянно",
-    "маленький", "большой", "либо", "стоить", "уточнить", "некоторый",
-}
-
-# Словарь сленга
-_SLANG_MAP = {
-    "стипух": "стипендия", "стипуха": "стипендия", "стипухи": "стипендия",
-    "препод": "преподаватель", "преподы": "преподаватель", "преподов": "преподаватель",
-    "хата": "домой", "хату": "домой",
-    "нвк": "общежитие нвк",
-    "тусоваться": "тусоваться с друзьями", "тусуюсь": "тусоваться с друзьями",
-    "тусил": "тусоваться с друзьями",
-    "сиджу": "сидеть", "сижу": "сидеть",
-    "хожу": "ходить",
-    "перечитываю": "перечитывать", "рисую": "рисовать",
-}
-
 
 NO_ANSWER = "(нет ответа)"
 
@@ -159,10 +100,8 @@ def _compute_column(df: pd.DataFrame, col: str, cfg: dict) -> dict:
         }
 
     if col_type == "text":
-        top_words = _top_words(_clean(df[col]))
         return {
             "sample": _clean(df[col]).head(10).tolist(),
-            "top_words": top_words,
         }
 
     return {}
@@ -173,42 +112,6 @@ def _expand_multiple(series: pd.Series) -> pd.DataFrame:
     exploded = series.str.split(r",\s*", expand=True).stack()
     exploded = exploded.str.strip()
     return pd.get_dummies(exploded).groupby(level=0).max()
-
-
-def _top_words(series: pd.Series, n: int = 15, min_freq: int = 2) -> dict:
-    """Топ-N слов с лемматизацией и сленгом."""
-    from collections import Counter
-    import re
-
-    try:
-        import pymorphy3
-        morph = pymorphy3.MorphAnalyzer()
-        use_lemma = True
-    except ImportError:
-        use_lemma = False
-
-    words = []
-    for val in series.dropna():
-        tokens = re.findall(r"[а-яёa-z]+", str(val).lower())
-        for t in tokens:
-            if len(t) < 3:
-                continue
-            if t in _SLANG_MAP:
-                mapped = _SLANG_MAP[t]
-                if mapped not in _STOP_RU:
-                    words.append(mapped)
-                continue
-            if use_lemma:
-                lemma = morph.parse(t)[0].normal_form
-                if lemma in _STOP_RU or len(lemma) < 3:
-                    continue
-                words.append(lemma)
-            else:
-                if t not in _STOP_RU:
-                    words.append(t)
-
-    counter = Counter(words)
-    return {w: c for w, c in counter.most_common(n) if c >= min_freq}
 
 
 def get_full_answers(series: pd.Series) -> list[str]:
@@ -222,3 +125,65 @@ def get_full_answers(series: pd.Series) -> list[str]:
             continue
         answers.append(s)
     return answers
+
+
+# ── Категоризация текстовых ответов ──
+
+def _match_category(text_lower: str, categories: dict) -> str | None:
+    """Находит первую подходящую категорию для текста."""
+    for category, keywords in categories.items():
+        for kw in keywords:
+            if kw in text_lower:
+                return category
+    return None
+
+
+def categorize_text_responses(series: pd.Series, categories: dict) -> dict:
+    """
+    Категоризирует текстовые ответы по словарю ключевых слов.
+    Возвращает: {категория: [список_ответов]}.
+    """
+    from collections import defaultdict
+
+    _JUNK = {"(нет ответа)", ".", "-", "—", "нет", "норм", "хз", "лол", "ок", "кек"}
+
+    results: dict[str, list[str]] = defaultdict(list)
+
+    for text in series.dropna():
+        if not isinstance(text, str) or len(text.strip()) < 3:
+            continue
+
+        text_lower = text.lower().strip()
+        if text_lower in _JUNK:
+            continue
+
+        cat = _match_category(text_lower, categories)
+        results[cat or "Другое"].append(text.strip())
+
+    # Сортируем по убыванию количества, «Другое» в конце
+    sorted_items = sorted(
+        results.items(),
+        key=lambda x: (x[0] == "Другое", -len(x[1])),
+    )
+    return dict(sorted_items)
+
+
+def get_category_summary(series: pd.Series, categories: dict) -> pd.DataFrame:
+    """
+    Возвращает DataFrame: Категория | Количество | Доля (%) | Примеры.
+    """
+    categorized = categorize_text_responses(series, categories)
+    total = sum(len(v) for v in categorized.values())
+
+    rows = []
+    for cat, answers in categorized.items():
+        pct = round(len(answers) / total * 100, 1) if total else 0
+        examples = answers[:3]  # первые 3 примера
+        rows.append({
+            "Категория": cat,
+            "Ответов": len(answers),
+            "Доля (%)": pct,
+            "Примеры": ", ".join(examples),
+        })
+
+    return pd.DataFrame(rows)

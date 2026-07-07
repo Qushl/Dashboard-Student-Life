@@ -39,3 +39,6 @@ desktop.ini
 # Зависимости (пересоздаётся из requirements.txt)
 pip-log.txt
 pip-delete-this-directory.txt
+
+# Тестовые данные
+data/

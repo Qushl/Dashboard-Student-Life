@@ -9,6 +9,11 @@ from config import QUESTIONS
 COLORS = px.colors.qualitative.Set2
 SCALE_COLOR = ["#ef4444", "#f97316", "#eab308", "#22c55e", "#3b82f6"]
 
+
+def _cycle_colors(n: int) -> list[str]:
+    """Возвращает n цветов, зацикливая основную палитру."""
+    return [COLORS[i % len(COLORS)] for i in range(n)]
+
 NO_ANSWER = "(нет ответа)"
 
 
@@ -70,7 +75,7 @@ def _bar_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure:
     labels = [_wrap_label(str(v)) for v in vc.index]
     fig = go.Figure(go.Bar(
         x=labels, y=vc.values, text=vc.values,
-        textposition="outside", marker_color=COLORS[:len(vc)],
+        textposition="outside", marker_color=_cycle_colors(len(vc)),
     ))
     fig.update_layout(
         title=title, xaxis_title="", yaxis_title="Количество",
@@ -121,7 +126,7 @@ def _multi_choice_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure:
     labels = [_wrap_label(str(v)) for v in vc.index]
     fig = go.Figure(go.Bar(
         x=labels, y=vc.values, text=vc.values,
-        textposition="outside", marker_color=COLORS[:len(vc)],
+        textposition="outside", marker_color=_cycle_colors(len(vc)),
     ))
     fig.update_layout(
         title=title, xaxis_title="", yaxis_title="Количество",
@@ -132,23 +137,8 @@ def _multi_choice_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure:
 
 
 def _text_wordcloud_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure:
-    """Топ слов для текстовых колонок."""
-    from modules.analytics import _top_words
-    top = _top_words(_clean(df[col]), n=3, min_freq=1)
-    if not top:
-        return None
-    labels = [_wrap_label(w, 15) for w in top.keys()]
-    fig = go.Figure(go.Bar(
-        x=labels, y=list(top.values()), text=list(top.values()),
-        textposition="outside", marker_color="#8b5cf6",
-    ))
-    fig.update_layout(
-        title=f"{title} — топ слов",
-        xaxis_title="Слово", yaxis_title="Частота",
-        showlegend=False,
-        xaxis=dict(tickangle=0, type="category", categoryorder="array", categoryarray=labels),
-    )
-    return fig
+    """Топ слов для текстовых колонок — заглушка (категоризация в app.py)."""
+    return None
 
 
 def render_pie(df: pd.DataFrame, col: str, title: str) -> go.Figure | None:
@@ -176,7 +166,7 @@ def render_pie(df: pd.DataFrame, col: str, title: str) -> go.Figure | None:
 
     fig = go.Figure(go.Pie(
         labels=vc.index.astype(str), values=vc.values, hole=0.3,
-        marker=dict(colors=COLORS[:len(vc)]),
+        marker=dict(colors=_cycle_colors(len(vc))),
         textinfo="label+percent", textposition="outside",
     ))
     fig.update_layout(title=title, showlegend=False)
