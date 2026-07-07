@@ -53,7 +53,7 @@ if not frames:
 
 df_raw = pd.concat(frames, ignore_index=True)
 df = preprocess(df_raw)
-st.success(f"Загружено файлов: {len(frames)} | Записей после обработки: {len(df)}")
+st.toast(f"Загружено файлов: {len(frames)} | Записей после обработки: {len(df)}", icon="✅")
 
 # Сайдбар: фильтры
 filters = render_sidebar(df)
@@ -170,18 +170,21 @@ for block_num, block_name in BLOCK_NAMES.items():
             if not cat_df.empty:
                 st.dataframe(cat_df, width='stretch', hide_index=True)
 
-                # График
-                fig = px.bar(
-                    cat_df[cat_df["Категория"] != "Другое"],
-                    x="Категория",
-                    y="Ответов",
-                    text="Доля (%)",
-                    color="Категория",
-                    color_discrete_sequence=_cycle_colors(len(cat_df) - 1),
-                )
-                fig.update_traces(textposition="outside")
-                fig.update_layout(showlegend=False, xaxis_title="", yaxis_title="Количество ответов")
-                st.plotly_chart(fig, width='stretch', key=f"cat_{block_num}_{col}")
+                # График (только если есть категории кроме «Другое»)
+                plot_df = cat_df[cat_df["Категория"] != "Другое"]
+                if not plot_df.empty:
+                    n_colors = max(len(plot_df), 1)
+                    fig = px.bar(
+                        plot_df,
+                        x="Категория",
+                        y="Ответов",
+                        text="Доля (%)",
+                        color="Категория",
+                        color_discrete_sequence=_cycle_colors(n_colors),
+                    )
+                    fig.update_traces(textposition="outside")
+                    fig.update_layout(showlegend=False, xaxis_title="", yaxis_title="Количество ответов")
+                    st.plotly_chart(fig, width='stretch', key=f"cat_{block_num}_{col}")
 
             # «Другое» — раскрывающийся список неопознанных ответов
             categorized = categorize_text_responses(df_filtered[col], categories)

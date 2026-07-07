@@ -87,7 +87,7 @@ def _make_scale(series: pd.Series, title: str) -> bytes:
 
 
 def _make_multi_choice(series: pd.Series, title: str) -> bytes:
-    expanded = _clean(series).str.split(r",\s*", expand=True).stack().str.strip()
+    expanded = _clean(series).astype(str).str.split(r",\s*", expand=True).stack().dropna().astype(str).str.strip()
     vc = expanded.value_counts().head(10)
     fig, ax = plt.subplots(figsize=(5, 3))
     ax.barh(vc.index[::-1], vc.values[::-1], color="#22c55e")

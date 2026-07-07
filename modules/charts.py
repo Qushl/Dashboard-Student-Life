@@ -69,9 +69,11 @@ def _wrap_label(text: str, max_len: int = 20) -> str:
     return "<br>".join(lines)
 
 
-def _bar_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure:
+def _bar_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure | None:
     """Столбчатая диаграмма."""
     vc = _clean(df[col]).value_counts()
+    if vc.empty:
+        return None
     labels = [_wrap_label(str(v)) for v in vc.index]
     fig = go.Figure(go.Bar(
         x=labels, y=vc.values, text=vc.values,
@@ -85,9 +87,11 @@ def _bar_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure:
     return fig
 
 
-def _histogram(df: pd.DataFrame, col: str, title: str) -> go.Figure:
+def _histogram(df: pd.DataFrame, col: str, title: str) -> go.Figure | None:
     """Гистограмма для числовых данных."""
     vc = pd.to_numeric(_clean(df[col]), errors="coerce").dropna().value_counts().sort_index()
+    if vc.empty:
+        return None
     labels = [str(v) for v in vc.index]
     fig = go.Figure(go.Bar(
         x=labels, y=vc.values, text=vc.values,
@@ -101,10 +105,12 @@ def _histogram(df: pd.DataFrame, col: str, title: str) -> go.Figure:
     return fig
 
 
-def _scale_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure:
+def _scale_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure | None:
     """Диаграмма для шкалы 1-5."""
     s = pd.to_numeric(_clean(df[col]), errors="coerce").dropna().astype(int)
     vc = s.value_counts().sort_index()
+    if vc.empty:
+        return None
     x_labels = [str(v) for v in vc.index]
     fig = go.Figure(go.Bar(
         x=x_labels, y=vc.values, text=vc.values,
@@ -119,10 +125,12 @@ def _scale_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure:
     return fig
 
 
-def _multi_choice_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure:
+def _multi_choice_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure | None:
     """Диаграмма для множественного выбора."""
-    expanded = _clean(df[col]).str.split(r",\s*", expand=True).stack().str.strip()
+    expanded = _clean(df[col]).astype(str).str.split(r",\s*", expand=True).stack().dropna().astype(str).str.strip()
     vc = expanded.value_counts()
+    if vc.empty:
+        return None
     labels = [_wrap_label(str(v)) for v in vc.index]
     fig = go.Figure(go.Bar(
         x=labels, y=vc.values, text=vc.values,
@@ -153,7 +161,7 @@ def render_pie(df: pd.DataFrame, col: str, title: str) -> go.Figure | None:
         vc = s.value_counts().sort_index()
         vc.index = [str(v) for v in vc.index]
     elif col_type == "multiple_choice":
-        expanded = _clean(df[col]).str.split(r",\s*", expand=True).stack().str.strip()
+        expanded = _clean(df[col]).astype(str).str.split(r",\s*", expand=True).stack().dropna().astype(str).str.strip()
         vc = expanded.value_counts()
     elif col_type == "numeric":
         vc = pd.to_numeric(_clean(df[col]), errors="coerce").dropna().value_counts().sort_index()
@@ -180,6 +188,8 @@ def render_table(df: pd.DataFrame, col: str, title: str) -> pd.DataFrame | None:
 
     if col_type == "categorical":
         vc = _clean(df[col]).value_counts()
+        if vc.empty:
+            return None
         total = vc.sum()
         return pd.DataFrame({
             "Ответ": vc.index, "Количество": vc.values,
@@ -188,13 +198,15 @@ def render_table(df: pd.DataFrame, col: str, title: str) -> pd.DataFrame | None:
     if col_type == "scale_1_5":
         s = pd.to_numeric(_clean(df[col]), errors="coerce").dropna().astype(int)
         vc = s.value_counts().sort_index()
+        if vc.empty:
+            return None
         total = vc.sum()
         return pd.DataFrame({
             "Оценка": vc.index.astype(str), "Количество": vc.values,
             "Доля (%)": (vc.values / total * 100).round(1),
         })
     if col_type == "multiple_choice":
-        expanded = _clean(df[col]).str.split(r",\s*", expand=True).stack().str.strip()
+        expanded = _clean(df[col]).astype(str).str.split(r",\s*", expand=True).stack().dropna().astype(str).str.strip()
         vc = expanded.value_counts()
         total = len(df)
         return pd.DataFrame({

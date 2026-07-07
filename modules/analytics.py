@@ -22,6 +22,8 @@ def compute_kpi(df: pd.DataFrame) -> dict:
     """Ключевые показатели для st.metric."""
     total = len(df)
     avg_age = df["Ваш возраст"].mean() if "Ваш возраст" in df else 0
+    if pd.isna(avg_age):
+        avg_age = 0
 
     pct_local = 0
     if "Является ли город, где вы учитесь, вашим родным?" in df:
@@ -109,7 +111,7 @@ def _compute_column(df: pd.DataFrame, col: str, cfg: dict) -> dict:
 
 def _expand_multiple(series: pd.Series) -> pd.DataFrame:
     """Разворачивает множественный выбор в one-hot."""
-    exploded = series.str.split(r",\s*", expand=True).stack()
+    exploded = series.astype(str).str.split(r",\s*", expand=True).stack().dropna().astype(str)
     exploded = exploded.str.strip()
     return pd.get_dummies(exploded).groupby(level=0).max()
 

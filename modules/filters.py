@@ -6,13 +6,24 @@ import streamlit as st
 from config import QUESTIONS
 
 
+def _normalize_options(series: pd.Series) -> list[str]:
+    """Нормализует опции: убирает пробелы, приводит к title case."""
+    raw = series.dropna().astype(str).str.strip()
+    seen = {}
+    for v in raw:
+        key = v.lower()
+        if key not in seen:
+            seen[key] = v.title()
+    return sorted(seen.values())
+
+
 def render_sidebar(df: pd.DataFrame) -> dict:
     """Отрисовывает сайдбар с фильтрами."""
     st.sidebar.header("Фильтры данных")
     filters = {}
 
     if "Ваш пол" in df.columns:
-        options = sorted(df["Ваш пол"].dropna().unique())
+        options = _normalize_options(df["Ваш пол"])
         filters["Ваш пол"] = st.sidebar.multiselect("Пол", options)
 
     if "Ваш возраст" in df.columns:
@@ -22,11 +33,11 @@ def render_sidebar(df: pd.DataFrame) -> dict:
         filters["Ваш возраст"] = st.sidebar.slider("Возраст", age_min, age_max, (age_min, age_max))
 
     if "На каком курсе вы учитесь?" in df.columns:
-        options = sorted(df["На каком курсе вы учитесь?"].dropna().unique())
+        options = _normalize_options(df["На каком курсе вы учитесь?"])
         filters["На каком курсе вы учитесь?"] = st.sidebar.multiselect("Курс", options)
 
     if "Где вы проживаете?" in df.columns:
-        options = sorted(df["Где вы проживаете?"].dropna().unique())
+        options = _normalize_options(df["Где вы проживаете?"])
         filters["Где вы проживаете?"] = st.sidebar.multiselect("Место проживания", options)
 
     if "Ваш родной город" in df.columns:
@@ -35,7 +46,7 @@ def render_sidebar(df: pd.DataFrame) -> dict:
             filters["Ваш родной город"] = city_input.strip().lower()
 
     if "Есть ли у вас подработка?" in df.columns:
-        options = sorted(df["Есть ли у вас подработка?"].dropna().unique())
+        options = _normalize_options(df["Есть ли у вас подработка?"])
         filters["Есть ли у вас подработка?"] = st.sidebar.multiselect("Подработка", options)
 
     fin_col = "В целом, как вы оцениваете свою финансовую ситуацию?"
@@ -60,12 +71,13 @@ def apply_filters(df: pd.DataFrame, filters: dict) -> pd.DataFrame:
         col_type = cfg.get("type", "categorical")
 
         if isinstance(value, list) and len(value) > 0:
+            value_lower = [v.lower() for v in value]
             if col_type == "multiple_choice":
                 mask = result[col].apply(
-                    lambda x: any(v in str(x) for v in value) if pd.notna(x) else False
+                    lambda x: any(v in str(x).lower() for v in value_lower) if pd.notna(x) else False
                 )
             else:
-                mask = result[col].isin(value)
+                mask = result[col].astype(str).str.lower().isin(value_lower)
             result = result[mask]
 
         elif isinstance(value, tuple) and col_type in ("numeric", "scale_1_5"):

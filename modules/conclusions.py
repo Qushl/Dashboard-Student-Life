@@ -59,8 +59,9 @@ def _conclusions_for_block(df: pd.DataFrame, block: int) -> list[str]:
             result.append(f"**{q}**: средняя оценка {mean} из 5 — {level}.")
 
         elif col_type == "multiple_choice":
-            raw = df[col][df[col].astype(str) != NO_ANSWER]
-            expanded = raw.str.split(r",\s*", expand=True).stack().str.strip()
+            raw = df[col].dropna()
+            raw = raw[raw.astype(str) != NO_ANSWER]
+            expanded = raw.astype(str).str.split(r",\s*", expand=True).stack().dropna().astype(str).str.strip()
             vc = expanded.value_counts()
             total = len(df)
             if len(vc) == 0 or total == 0:
