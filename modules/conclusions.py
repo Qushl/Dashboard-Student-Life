@@ -35,14 +35,14 @@ def _conclusions_for_block(df: pd.DataFrame, block: int) -> list[str]:
                 continue
             top = vc.index[0]
             top_pct = round(vc.values[0] / total * 100)
-            result.append(f"**{q}**: наиболее частый ответ — «{top}» ({top_pct}% респондентов).")
+            result.append(f"{q}: наиболее частый ответ — «{top}» ({top_pct}% респондентов).")
 
         elif col_type == "numeric":
             s = pd.to_numeric(df[col], errors="coerce").dropna()
             s = s[s.astype(str) != NO_ANSWER]
             if len(s) == 0:
                 continue
-            result.append(f"**{q}**: среднее = {round(s.mean(), 1)}, медиана = {round(s.median(), 1)}.")
+            result.append(f"{q}: среднее = {round(s.mean(), 1)}, медиана = {round(s.median(), 1)}.")
 
         elif col_type == "scale_1_5":
             raw = df[col][df[col].astype(str) != NO_ANSWER]
@@ -56,7 +56,7 @@ def _conclusions_for_block(df: pd.DataFrame, block: int) -> list[str]:
                 level = "средний уровень удовлетворённости"
             else:
                 level = "низкий уровень удовлетворённости"
-            result.append(f"**{q}**: средняя оценка {mean} из 5 — {level}.")
+            result.append(f"{q}: средняя оценка {mean} из 5 — {level}.")
 
         elif col_type == "multiple_choice":
             raw = df[col].dropna()
@@ -68,6 +68,6 @@ def _conclusions_for_block(df: pd.DataFrame, block: int) -> list[str]:
                 continue
             top = vc.index[0]
             top_pct = round(vc.values[0] / total * 100)
-            result.append(f"**{q}**: самый популярный вариант — «{top}» ({top_pct}% респондентов).")
+            result.append(f"{q}: самый популярный вариант — «{top}» ({top_pct}% респондентов).")
 
     return result

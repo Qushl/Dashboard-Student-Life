@@ -12,7 +12,7 @@ from modules.analytics import (
 )
 from modules.charts import (
     render_block_charts, render_chart,
-    render_pie, render_table, _cycle_colors,
+    render_pie, render_table, _cycle_colors, _wrap_label,
 )
 from modules.filters import render_sidebar, apply_filters
 from modules.excel_exporter import export_to_excel
@@ -174,16 +174,21 @@ for block_num, block_name in BLOCK_NAMES.items():
                 plot_df = cat_df[cat_df["Категория"] != "Другое"]
                 if not plot_df.empty:
                     n_colors = max(len(plot_df), 1)
+                    plot_df = plot_df.copy()
+                    plot_df["Категория_"] = [_wrap_label(c) for c in plot_df["Категория"]]
                     fig = px.bar(
                         plot_df,
-                        x="Категория",
+                        x="Категория_",
                         y="Ответов",
                         text="Доля (%)",
                         color="Категория",
                         color_discrete_sequence=_cycle_colors(n_colors),
                     )
                     fig.update_traces(textposition="outside")
-                    fig.update_layout(showlegend=False, xaxis_title="", yaxis_title="Количество ответов")
+                    fig.update_layout(
+                        showlegend=False, xaxis_title="", yaxis_title="Количество ответов",
+                        xaxis=dict(tickangle=0, tickfont=dict(size=11)),
+                    )
                     st.plotly_chart(fig, width='stretch', key=f"cat_{block_num}_{col}")
 
             # «Другое» — раскрывающийся список неопознанных ответов

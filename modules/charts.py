@@ -82,7 +82,8 @@ def _bar_chart(df: pd.DataFrame, col: str, title: str) -> go.Figure | None:
     fig.update_layout(
         title=title, xaxis_title="", yaxis_title="Количество",
         showlegend=False,
-        xaxis=dict(tickangle=0, type="category", categoryorder="array", categoryarray=labels),
+        xaxis=dict(tickangle=0, type="category", categoryorder="array", categoryarray=labels,
+                   tickfont=dict(size=11)),
     )
     return fig
 
